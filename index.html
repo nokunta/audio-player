@@ -3,99 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Player - Assistente</title>
+    <title>🎵 Audio Player Debug</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .container {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-        }
-        .title {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .audio-player {
-            width: 100%;
-            margin: 20px 0;
-            outline: none;
-        }
-        .status {
-            color: #666;
-            font-style: italic;
-            margin-top: 10px;
-        }
-        .loading {
-            color: #667eea;
-            font-weight: bold;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .debug { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0; font-family: monospace; }
+        audio { width: 100%; margin: 20px 0; }
+        .test-btn { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="title">🎵 Assistente de Produtividade</div>
-        <audio id="audioPlayer" class="audio-player" controls>
+        <h1>🎵 Audio Player - Debug Mode</h1>
+        
+        <div class="debug">
+            <strong>URL Original:</strong><br>
+            <span id="originalUrl"></span>
+        </div>
+        
+        <div class="debug">
+            <strong>Status:</strong> <span id="status">Iniciando...</span>
+        </div>
+        
+        <audio id="player" controls>
             Seu navegador não suporta áudio.
         </audio>
-        <div id="status" class="status loading">Aguardando áudio...</div>
+        
+        <button class="test-btn" onclick="testDirectAccess()">Testar Acesso Direto</button>
+        <button class="test-btn" onclick="forceReload()">Forçar Reload</button>
+        
+        <div class="debug">
+            <strong>Console Log:</strong>
+            <div id="log"></div>
+        </div>
     </div>
 
     <script>
-        const player = document.getElementById('audioPlayer');
+        const player = document.getElementById('player');
         const status = document.getElementById('status');
+        const originalUrl = document.getElementById('originalUrl');
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            const time = new Date().toLocaleTimeString();
+            log.innerHTML += `[${time}] ${message}<br>`;
+            console.log(message);
+        }
         
         function getAudioUrl() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('audio') || urlParams.get('url');
+            return urlParams.get('audio');
         }
         
-        function loadAudio() {
+        function testDirectAccess() {
+            const url = getAudioUrl();
+            addLog('Testando acesso direto...');
+            window.open(url, '_blank');
+        }
+        
+        function forceReload() {
+            const url = getAudioUrl();
+            player.src = '';
+            setTimeout(() => {
+                player.src = url;
+                player.load();
+            }, 100);
+        }
+        
+        function init() {
             const audioUrl = getAudioUrl();
             
-            if (audioUrl) {
-                status.textContent = 'Carregando áudio...';
-                player.src = audioUrl;
-                
-                player.addEventListener('loadeddata', () => {
-                    status.textContent = 'Áudio carregado! Reproduzindo...';
-                    player.play().catch(e => {
-                        status.textContent = 'Clique no play para reproduzir';
-                    });
-                });
-                
-                player.addEventListener('error', () => {
-                    status.textContent = 'Erro ao carregar áudio';
-                });
-                
-                player.addEventListener('ended', () => {
-                    status.textContent = 'Reprodução concluída';
-                });
-            } else {
-                status.textContent = 'Nenhum áudio fornecido na URL';
+            if (!audioUrl) {
+                status.textContent = 'Nenhuma URL fornecida';
+                addLog('ERRO: Nenhuma URL de áudio na query string');
+                return;
             }
+            
+            originalUrl.textContent = audioUrl;
+            addLog(`URL recebida: ${audioUrl}`);
+            
+            player.src = audioUrl;
+            
+            player.addEventListener('loadstart', () => {
+                status.textContent = 'Iniciando carregamento...';
+                addLog('Evento: loadstart');
+            });
+            
+            player.addEventListener('loadeddata', () => {
+                status.textContent = 'Dados carregados!';
+                addLog('Evento: loadeddata - Áudio pronto');
+                player.play().catch(e => addLog(`Erro no play: ${e.message}`));
+            });
+            
+            player.addEventListener('error', (e) => {
+                status.textContent = 'ERRO no carregamento';
+                addLog(`ERRO: ${e.message || 'Erro desconhecido'}`);
+                addLog(`Código do erro: ${player.error?.code}`);
+                addLog(`Mensagem: ${player.error?.message}`);
+            });
+            
+            player.addEventListener('canplay', () => {
+                addLog('Evento: canplay - Pode reproduzir');
+            });
         }
         
-        // Auto-load when page loads
-        window.addEventListener('load', loadAudio);
-        
-        // Also check for URL changes (if opened via webhook)
-        window.addEventListener('hashchange', loadAudio);
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>
